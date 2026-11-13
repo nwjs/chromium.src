@@ -32,6 +32,14 @@ namespace {
 std::vector<blink::mojom::FileChooserFileInfoPtr> RemoveSymlinks(
     std::vector<blink::mojom::FileChooserFileInfoPtr> files,
     base::FilePath base_dir) {
+  // NW.js:
+  // If base_dir is empty (as happens when using <input type="file" nwdirectory>), 
+  // skip all the logic below and return the files. Otherwise the CHECK will crash
+  // the entire program, and maybe other bad things, since the Chromium devs don't
+  // expect an empty base_dir to ever exist.
+  if (base_dir.empty()) {
+    return files;
+  }
   CHECK(!base_dir.empty(), base::NotFatalUntil::M158);
   auto to_remove = std::ranges::remove_if(
       files,
