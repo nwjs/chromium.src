@@ -88,7 +88,7 @@ bool GetDefaultUserDataDirectoryForProduct(const std::string& product_dir,
 namespace chrome {
 
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
-  return GetDefaultUserDataDirectoryForProduct(nw::package()->GetName(), result);
+  return GetDefaultUserDataDirectoryForProduct(nw::InitNWPackage()->GetName(), result);
 }
 
 bool GetUserDocumentsDirectory(base::FilePath* result) {

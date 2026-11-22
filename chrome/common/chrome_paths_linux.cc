@@ -97,10 +97,10 @@ bool GetDefaultUserDataDirectory(base::FilePath* result) {
 #elif 0 //BUILDFLAG(GOOGLE_CHROME_BRANDING)
   std::string data_dir_basename = "google-chrome";
 #else
-  std::string data_dir_basename = nw::package()->GetName();
+  std::string data_dir_basename = nw::InitNWPackage()->GetName();
 #endif
 
-  *result = config_dir.Append(nw::package()->GetName());
+  *result = config_dir.Append(nw::InitNWPackage()->GetName());
   //*result = config_dir.Append(data_dir_basename + GetChannelSuffixForDataDir());
   return true;
 }
