@@ -207,6 +207,11 @@ SPECIAL_CASES = {
     "URL": "https://iojs.org",
     "License": "MIT",
   },
+  os.path.join('third_party', 'node-nw'): {
+    "Name": "Node.js",
+    "URL": "https://nodejs.org",
+    "License": "MIT",
+  },
   os.path.join('third_party', 'cros_system_api'): {
     "Name": "Chromium OS system API",
     "URL": "https://www.chromium.org/chromium-os",
